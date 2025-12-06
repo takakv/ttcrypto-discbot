@@ -19,6 +19,7 @@ class Secrets(NamedTuple):
     JWT_SECRET = os.getenv("JWT_SECRET")
     SYM_SECRET = int(os.getenv("SYM_SECRET"), 16)
     KEY_PWD = os.getenv("KEY_PWD")
+    WFS_SECRET = bytes.fromhex(os.getenv("WFS_SECRET"))
 
 
 class Keys(NamedTuple):
