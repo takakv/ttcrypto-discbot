@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from jwt import DecodeError, ExpiredSignatureError
 from nextcord import slash_command, Interaction, SlashOption, File
 from nextcord.ext import commands
+from typing_extensions import NamedTuple
 
 from src.tokens import get_student_token
 from src.utils.constants import Secrets
@@ -21,6 +22,13 @@ ROLE_ID = int(os.getenv("ROLE_ID"))
 
 USER_DATA_DIR = "userdata"
 USED_TOKENS_FILE = "used_tokens.txt"
+
+
+class LdapData(NamedTuple):
+    cn: str
+    surname: str
+    given_name: str
+    cert: bytes
 
 
 async def register_user(interaction: Interaction, token: str) -> tuple[bool, str]:
@@ -62,6 +70,45 @@ async def register_user(interaction: Interaction, token: str) -> tuple[bool, str
     return True, ""
 
 
+async def fetch_cert_from_ldap(idCode: str) -> LdapData | None:
+    sk_ldap = ldap.initialize("ldaps://esteid.ldap.sk.ee/")
+    res = sk_ldap.search_s("c=EE", ldap.SCOPE_SUBTREE, f"(serialNumber=PNOEE-{idCode})")
+
+    found_cert = False
+    cn = ""
+    cert_bytes = b""
+
+    if len(res) != 0:
+        for dn, entry in res:
+            if "ou=authentication" not in dn.lower() or "o=mobile-id" in dn.lower():
+                continue
+
+            found_cert = True
+            cn = entry.get("cn", [b""])[0].decode()
+            cert_bytes = entry.get("userCertificate;binary", [b""])[0]
+
+    if not found_cert:
+        zetes_ldap = ldap.initialize("ldaps://ldap.eidpki.ee/")
+        res = zetes_ldap.search_s("dc=ESTEID,c=EE,dc=ldap,dc=eidpki,dc=ee", ldap.SCOPE_SUBTREE,
+                                  f"(serialNumber=PNOEE-{idCode})")
+
+        # eidpki.ee ldap only return authentication certificates
+        # and only for chip-enabled natural person ID documents
+        _, entry = res[0]
+
+        cn = entry.get("cn", [b""])[0].decode()
+        cert_bytes = entry.get("userCertificate;binary", [b""])[0]
+
+        if len(res) == 0:
+            return None
+
+    cn_objects = cn.split(",")
+    surname = cn_objects[0]
+    given_name = cn_objects[1]
+
+    return LdapData(cn, surname, given_name, cert=cert_bytes)
+
+
 class Account(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -90,37 +137,14 @@ class Account(commands.Cog):
             )
             return
 
-        l = ldap.initialize("ldaps://esteid.ldap.sk.ee/")
-        l.simple_bind_s("", "")
-        res = l.search_s("c=EE", ldap.SCOPE_SUBTREE, f"(serialNumber=PNOEE-{idc})")
-
-        if len(res) == 0:
+        user_data = await fetch_cert_from_ldap(idc)
+        if user_data is None:
             await interaction.send(f"No certificates found for ID code `{idc}`", ephemeral=True)
             return
 
-        cn = ""
-        cert_bytes = b""
-
-        for dn, entry in res:
-            if "ou=authentication" not in dn.lower() or "o=mobile-id" in dn.lower():
-                continue
-
-            cn = entry.get("cn", [b""])[0].decode()
-            cert_bytes = entry.get("userCertificate;binary", [b""])[0]
-
-        l.unbind_s()
-
-        if cn == "" or cert_bytes == b"":
-            await interaction.send(f"No authentication certificate found for `{cn}`", ephemeral=True)
-            return
-
-        cn_objects = cn.split(",")
-        surname = cn_objects[0]
-        given_name = cn_objects[1]
-
-        token = get_student_token(given_name, surname, idc)
+        token = get_student_token(user_data.given_name, user_data.surname)
         if token is None:
-            logging.warning(f"Student ({interaction.user.id}) with CN '{cn}' could not be found")
+            logging.warning(f"Student ({interaction.user.id}) with CN '{user_data.cn}' could not be found")
             await interaction.send(
                 "Could not validate course registration. Send a message to @taka.kv for a code.",
                 ephemeral=True)
@@ -131,7 +155,7 @@ class Account(commands.Cog):
                 tempfile.NamedTemporaryFile(delete=False, mode="w", encoding="utf-8",
                                             prefix="token_", suffix=".txt") as token_file:
 
-            cert_file.write(cert_bytes)
+            cert_file.write(user_data.cert)
             cert_file_path = Path(cert_file.name)
 
             token_file.write(token)
