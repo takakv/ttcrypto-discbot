@@ -62,7 +62,7 @@ async def register_user(interaction: Interaction, token: str) -> tuple[bool, str
     # Do not expire the token or register the user before
     # the user actually has the role.
     with open(user_datafile, "w") as f:
-        f.write(f"{data['name']}\n{data['studentCode']}\n{data['uniID']}\n{data['idCode']}")
+        f.write(f"{data['name']}\n{data['studentCode']}\n{data['uniID']}")
 
     with open(USED_TOKENS_FILE, "a") as f:
         f.write(token_string)
