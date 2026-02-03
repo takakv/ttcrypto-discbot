@@ -92,15 +92,15 @@ async def fetch_cert_from_ldap(idCode: str) -> LdapData | None:
         res = zetes_ldap.search_s("dc=ESTEID,c=EE,dc=ldap,dc=eidpki,dc=ee", ldap.SCOPE_SUBTREE,
                                   f"(serialNumber=PNOEE-{idCode})")
 
+        if len(res) == 0:
+            return None
+
         # eidpki.ee ldap only return authentication certificates
         # and only for chip-enabled natural person ID documents
         _, entry = res[0]
 
         cn = entry.get("cn", [b""])[0].decode()
         cert_bytes = entry.get("userCertificate;binary", [b""])[0]
-
-        if len(res) == 0:
-            return None
 
     cn_objects = cn.split(",")
     surname = cn_objects[0]
