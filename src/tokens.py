@@ -24,7 +24,8 @@ def get_student_token(first_name: str, last_name: str) -> str | None:
     with open("students.csv") as sf:
         csv_reader = csv.reader(sf, delimiter=";")
         for row in csv_reader:
-            if unidecode(row[3].lower()) == last_name.lower() and unidecode(row[2].lower()) == first_name.lower():
+            if unidecode(row[3].lower()) == unidecode(last_name.lower()) and unidecode(row[2].lower()) == unidecode(
+                    first_name.lower()):
                 return get_jwt(f"{row[2]} {row[3]}", row[1], row[0])
     return None
 
