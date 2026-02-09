@@ -34,7 +34,9 @@ def main():
     with open("students.csv") as sf:
         csv_reader = csv.reader(sf, delimiter=";")
         for row in csv_reader:
-            if row[1] == "":
+            match = ""
+            if row[1] == match:
+                print("Token for", match)
                 print(get_jwt(f"{row[2]} {row[3]}", row[1], row[0]))
 
 
