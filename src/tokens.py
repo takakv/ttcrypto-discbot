@@ -13,7 +13,7 @@ SECRET = os.getenv("JWT_SECRET")
 
 def get_jwt(name: str, uni_id: str, student_code: str) -> str:
     return jwt.encode({
-        "exp": datetime(2026, 2, 11, tzinfo=ZoneInfo("Europe/Tallinn")),
+        "exp": datetime(2026, 2, 12, tzinfo=ZoneInfo("Europe/Tallinn")),
         "name": name,
         "uniID": uni_id,
         "studentCode": student_code,
