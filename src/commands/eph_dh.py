@@ -23,33 +23,30 @@ def kdf(s: bytes, keylen: int = 16) -> bytes:
     return SHAKE128.new(s).read(keylen)
 
 
-async def get_ec_keys(interaction: nextcord.Interaction, s_key: str, e_key: str) -> tuple[EccKey, EccKey]:
-    s_key = s_key[len(PUB_PEM_START):-len(PUB_PEM_END)].replace(" ", "")
-    e_key = e_key[len(PUB_PEM_START):-len(PUB_PEM_END)].replace(" ", "")
+async def get_ec_key(interaction: nextcord.Interaction, pubkey: str) -> EccKey:
+    pubkey = pubkey[len(PUB_PEM_START):-len(PUB_PEM_END)].replace(" ", "")
 
     try:
-        s_pk_b = base64.b64decode(s_key, validate=True)
-        e_pk_b = base64.b64decode(e_key, validate=True)
+        key_bytes = base64.b64decode(pubkey, validate=True)
     except binascii.Error:
-        await interaction.send("Public keys are not valid PEM", ephemeral=True)
+        await interaction.send("Public key is not valid PEM", ephemeral=True)
         raise RuntimeError()
 
     try:
-        user_s_pk = ECC.import_key(s_pk_b)
-        user_e_pk = ECC.import_key(e_pk_b)
+        key = ECC.import_key(key_bytes)
     except ValueError:
         await interaction.send("Public keys are not valid ECC keys", ephemeral=True)
         raise RuntimeError()
 
-    if user_s_pk.has_private() or user_e_pk.has_private():
+    if key.has_private():
         await interaction.send("!!!Submitted a private key!!!", ephemeral=True)
         raise RuntimeError()
 
-    if user_s_pk.curve != "NIST P-384" or user_e_pk.curve != "NIST P-384":
+    if key.curve != "NIST P-384":
         await interaction.send("Wrong elliptic curve", ephemeral=True)
         raise RuntimeError()
 
-    return user_s_pk, user_e_pk
+    return key
 
 
 def fetch_session_key(ssk: EccKey, spk: EccKey, esk: EccKey, epk: EccKey) -> bytes:

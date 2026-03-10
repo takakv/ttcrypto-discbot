@@ -9,7 +9,7 @@ from src.algos.shift import ShiftCipher, BShiftCipher
 from src.cogs.CSR import CSR
 from src.cogs.ElGamalAuthentication import ElGamalAuthentication
 from src.cogs.account import Account
-from src.cogs.ecdhe import ECDH
+from src.cogs.hpke import BotHPKE
 from src.cogs.wFSChallenge import WeakFSChallenge
 from src.utils.constants import Client, init_keys, Keys
 
@@ -157,6 +157,6 @@ bot.add_cog(ElGamalAuthentication(bot))
 bot.add_cog(CSR(bot))
 bot.add_cog(Account(bot))
 bot.add_cog(WeakFSChallenge(bot))
-bot.add_cog(ECDH(bot))
+bot.add_cog(BotHPKE(bot))
 
 bot.run(Client.TOKEN)
