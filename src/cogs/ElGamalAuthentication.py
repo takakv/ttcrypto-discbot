@@ -1,3 +1,5 @@
+from fastecdsa.curve import P384
+from fastecdsa.encoding.sec1 import SEC1Encoder, InvalidSEC1PublicKey
 from nextcord import slash_command, Interaction, SlashOption, IntegrationType
 from nextcord.ext import commands
 from peewee import DoesNotExist
@@ -19,7 +21,7 @@ class ElGamalAuthentication(commands.Cog):
 
     @authenticate.subcommand(description="Show the public key.")
     async def pk(self, interaction: Interaction):
-        await interaction.send(Keys.EG.pk, ephemeral=True)
+        await interaction.send(f"```{Keys.P384.public_key().export_key(format='PEM')}```", ephemeral=True)
 
     @authenticate.subcommand(description="Show the previous successful token.")
     async def show_token(self, interaction: Interaction):
@@ -30,8 +32,8 @@ class ElGamalAuthentication(commands.Cog):
             return
 
         s = token.token.split(" ")
-        u = int(s[0], 10)
-        v = int(s[1], 10)
+        u = s[0]
+        v = s[1]
 
         await interaction.send(f'```u=\n{u}\nv=\n{v}```', ephemeral=True)
 
@@ -40,15 +42,23 @@ class ElGamalAuthentication(commands.Cog):
                       u: str = SlashOption(description="The randomness component."),
                       v: str = SlashOption(description="The message component.")):
         try:
-            u = int(u, 10)
-            v = int(v, 10)
+            u_bytes = bytes.fromhex(u)
+            v_bytes = bytes.fromhex(v)
         except ValueError:
-            await interaction.send("The components must be integers!", ephemeral=True)
+            await interaction.send("The components must be hex-encoded!", ephemeral=True)
             return
 
         serialised = f"{u} {v}"
-        uid = interaction.user.id
 
+        curve = P384
+        try:
+            u = SEC1Encoder.decode_public_key(u_bytes, curve)
+            v = SEC1Encoder.decode_public_key(v_bytes, curve)
+        except InvalidSEC1PublicKey:
+            await interaction.send("The components are not valid P-384 encoded points!", ephemeral=True)
+            return
+
+        uid = interaction.user.id
         token_is_accepted = False
 
         try:
@@ -65,7 +75,8 @@ class ElGamalAuthentication(commands.Cog):
 
         message = "Invalid token! Access denied."
 
-        if res == Secrets.SYM_SECRET:
+        match = Secrets.SYM_SECRET * curve.G
+        if res == match:
             message = "Access granted."
             token_is_valid = True
             if not token_is_accepted:
