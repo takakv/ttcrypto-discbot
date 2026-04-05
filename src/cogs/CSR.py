@@ -51,7 +51,7 @@ class CSR(commands.Cog):
 
         subject = csr.subject
         serialised = subject.rfc4514_string({NameOID.EMAIL_ADDRESS: "E"})
-        expected = f"E={ttu_id}@taltech.ee,CN={legal_name},OU=ICS0036,O=TalTech,C=EE"
+        expected = f"E={ttu_id}@taltech.ee,CN={legal_name},OU=ITC8280,O=TalTech,C=EE"
         if serialised != expected:
             await interaction.send(f"Certificate subject should be:\n`{expected}`\nbut was\n`{serialised}`",
                                    ephemeral=True)
@@ -62,13 +62,13 @@ class CSR(commands.Cog):
 
         try:
             subprocess.run(["openssl", "x509", "-req",
-                            "-extfile", f"{SERVER_DATA_DIR}/mtls.ext",
+                            "-extfile", f"{SERVER_DATA_DIR}/mtls.itc.ext",
                             "-CA", f"{SERVER_DATA_DIR}/ca.cert.pem",
                             "-CAkey", f"{SERVER_DATA_DIR}/ca.key.pem",
                             # "-passin", f"pass:{CA_PWD}",
                             "-CAcreateserial", "-sha256",
                             # "-days", "1",
-                            "-not_after", "20260131145959Z",
+                            "-not_after", "20260531145959Z",
                             "-in", tempfile,
                             "-out", certfile], check=True, capture_output=True)
         except subprocess.CalledProcessError as e:
