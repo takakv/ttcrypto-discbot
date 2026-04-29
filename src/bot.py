@@ -10,6 +10,7 @@ from src.cogs.CSR import CSR
 from src.cogs.ElGamalAuthentication import ElGamalAuthentication
 from src.cogs.account import Account
 from src.cogs.hpke import BotHPKE
+from src.cogs.shoup import Shoup
 from src.cogs.wFSChallenge import WeakFSChallenge
 from src.utils.constants import Client, init_keys, Keys
 
@@ -158,5 +159,6 @@ bot.add_cog(CSR(bot))
 bot.add_cog(Account(bot))
 bot.add_cog(WeakFSChallenge(bot))
 bot.add_cog(BotHPKE(bot))
+bot.add_cog(Shoup(bot))
 
 bot.run(Client.TOKEN)
