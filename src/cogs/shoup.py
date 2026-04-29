@@ -114,7 +114,7 @@ class Shoup(commands.Cog):
     @shoup.subcommand(description="Receive a share and its verification key.")
     async def request(self, interaction: Interaction):
         if not os.path.isfile(SHOUP_PUB_FILE):
-            await interaction.send("The Shoup scheme has not been initialised yet.", ephemeral=True)
+            await interaction.send("No session is ongoing.", ephemeral=True)
             return
 
         if not os.path.isdir(SHOUP_SHARES_DIR) or not os.path.isdir(SHOUP_VKS_DIR):
@@ -148,6 +148,10 @@ class Shoup(commands.Cog):
     @shoup.subcommand(description="Submit your threshold signature share.")
     async def submit(self, interaction: Interaction,
                      signature: Attachment = SlashOption(description="Your signature share file.")):
+        if not os.path.isfile(SHOUP_PUB_FILE):
+            await interaction.send("No session is ongoing.", ephemeral=True)
+            return
+
         dest_filename = f"{interaction.user.name}.sig"
 
         os.makedirs(SHOUP_SIGS_DIR, exist_ok=True)
@@ -182,12 +186,20 @@ class Shoup(commands.Cog):
     @shoup.subcommand(description="Zip and publish all submitted signatures, then clean up.")
     @application_checks.has_guild_permissions(administrator=True)
     async def finish(self, interaction: Interaction):
+        # Remove the public key file first to mark the session as finished and avoid race conditions
+        # with the other commands.
+        if os.path.isfile(SHOUP_PUB_FILE):
+            os.remove(SHOUP_PUB_FILE)
+
         sig_files = os.listdir(SHOUP_SIGS_DIR) if os.path.isdir(SHOUP_SIGS_DIR) else []
 
-        threshold_met = False
+        threshold = None
         if os.path.isfile(SHOUP_THRESHOLD_FILE):
             with open(SHOUP_THRESHOLD_FILE, "r") as f:
-                threshold_met = len(sig_files) >= int(f.read().strip())
+                threshold = int(f.read().strip())
+
+        count = len(sig_files)
+        threshold_met = threshold is not None and count >= threshold
 
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -195,13 +207,17 @@ class Shoup(commands.Cog):
                 zf.write(os.path.join(SHOUP_SIGS_DIR, name), arcname=name)
         buf.seek(0)
 
-        msg = "Shoup session finished." if threshold_met else "Shoup session finished without reaching the threshold."
+        if threshold_met:
+            msg = f"Signing session finished ({count}/{threshold})."
+        else:
+            status = f"{count}/{threshold}" if threshold is not None else str(count)
+            msg = f"Signing session finished without reaching the threshold ({status})."
         await interaction.send(msg, file=nextcord.File(buf, filename="signatures.zip"))
 
         for path in (SHOUP_SHARES_DIR, SHOUP_VKS_DIR, SHOUP_SIGS_DIR):
             if os.path.isdir(path):
                 shutil.rmtree(path)
-        for path in (SHOUP_VK_FILE, SHOUP_PUB_FILE, SHOUP_THRESHOLD_FILE):
+        for path in (SHOUP_VK_FILE, SHOUP_THRESHOLD_FILE):
             if os.path.isfile(path):
                 os.remove(path)
 
