@@ -162,16 +162,17 @@ class Account(commands.Cog):
             token_file.write(token)
             token_file_path = Path(token_file.name)
 
-        cdoc_path = userdata.USER_DATA_DIR / f"{idc}.cdoc"
+        cdoc_path = userdata.USER_DATA_DIR / f"{idc}.cdoc2"
 
         cdoc_cmd = [
             "java",
             "-jar",
-            "./vendor/cdoc4j-util-1.5.jar",
-            "encrypt",
-            "-f", str(token_file_path),
-            "-r", str(cert_file_path),
-            "-o", str(cdoc_path),
+            "./vendor/cdoc2-cli.jar",
+            "create",
+            "--server", "./vendor/ria.properties",
+            "-c", str(cert_file_path),
+            "-f", str(cdoc_path),
+            str(token_file_path)
         ]
 
         result = subprocess.run(cdoc_cmd, capture_output=True, text=True)
@@ -179,7 +180,7 @@ class Account(commands.Cog):
         cert_file_path.unlink(missing_ok=True)
         token_file_path.unlink(missing_ok=True)
 
-        if result.returncode != 0 or "CDOC composed successfully!" not in result.stdout:
+        if result.returncode != 0:
             await interaction.send(
                 "Internal error encrypting the token. Send a message to @taka.kv for a code.",
                 ephemeral=True)
@@ -192,6 +193,6 @@ class Account(commands.Cog):
             "To decrypt your token, you will need your ID card or equivalent, "
             "and the [DigiDoc](https://www.id.ee/en/article/install-id-software/) Estonian ID software.\n"
             "If you are unable to decrypt the container, send a message to @taka.kv for a code.",
-            file=File(cdoc_path, filename="token.cdoc"), ephemeral=True
+            file=File(cdoc_path, filename="token.cdoc2"), ephemeral=True
         )
         cdoc_path.unlink(missing_ok=True)
