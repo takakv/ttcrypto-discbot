@@ -1,0 +1,17 @@
+[project]
+name = "ttcrypto-discbot"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "cryptography>=46.0.5",
+    "fastecdsa>=3.0.1",
+    "gmpy2>=2.2.2",
+    "nextcord>=3.1.1",
+    "peewee>=3.19.0",
+    "pycryptodome>=3.23.0",
+    "PyJWT>=2.11.0",
+    "python-dotenv>=1.2.1",
+    "python-ldap>=3.4.5",
+    "typing-extensions>=4.15.0",
+    "Unidecode>=1.4.0",
+]

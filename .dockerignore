@@ -1,0 +1,9 @@
+# Allowlist rather than denylist.
+*
+
+!pyproject.toml
+!uv.lock
+!src
+
+**/__pycache__
+**/*.pyc
