@@ -14,13 +14,14 @@ from nextcord.ext import commands
 from typing_extensions import NamedTuple
 
 from src.tokens import get_student_token
+from src.utils import userdata
 from src.utils.constants import Secrets
+from src.utils.userdata import UserData
 
 load_dotenv()
 GUILD_IDS = [int(os.getenv("GUILD_ID"))]
 ROLE_ID = int(os.getenv("ROLE_ID"))
 
-USER_DATA_DIR = "userdata"
 USED_TOKENS_FILE = "used_tokens.txt"
 
 
@@ -36,13 +37,12 @@ async def register_user(interaction: Interaction, token: str) -> tuple[bool, str
     # By design, if the user has left the server and rejoins, no automatic
     # or token re-registration is possible!
     user_id = interaction.user.id
-    user_datafile = f"{USER_DATA_DIR}/{user_id}.txt"
 
-    if os.path.isfile(user_datafile):
+    if userdata.is_registered(user_id):
         return False, "You are already registered"
 
     try:
-        data = jwt.decode(token, Secrets.JWT_SECRET, algorithms="HS256")
+        claims = jwt.decode(token, Secrets.JWT_SECRET, algorithms="HS256")
     except (DecodeError, ExpiredSignatureError) as err:
         print(f"User '{user_id}' submitted invalid token '{token}'")
         return False, str(err)
@@ -61,8 +61,9 @@ async def register_user(interaction: Interaction, token: str) -> tuple[bool, str
 
     # Do not expire the token or register the user before
     # the user actually has the role.
-    with open(user_datafile, "w") as f:
-        f.write(f"{data['name']}\n{data['studentCode']}\n{data['uniID']}")
+    userdata.store(user_id, UserData(name=claims["name"],
+                                     uni_id=claims["uniID"],
+                                     student_code=claims["studentCode"]))
 
     with open(USED_TOKENS_FILE, "a") as f:
         f.write(token_string)
@@ -161,7 +162,7 @@ class Account(commands.Cog):
             token_file.write(token)
             token_file_path = Path(token_file.name)
 
-        cdoc_path = Path(f"{USER_DATA_DIR}/{idc}.cdoc")
+        cdoc_path = userdata.USER_DATA_DIR / f"{idc}.cdoc"
 
         cdoc_cmd = [
             "java",

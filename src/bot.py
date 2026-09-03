@@ -12,6 +12,7 @@ from src.cogs.account import Account
 from src.cogs.hpke import BotHPKE
 from src.cogs.shoup import Shoup
 from src.cogs.wFSChallenge import WeakFSChallenge
+from src.utils import userdata
 from src.utils.constants import Client, init_keys, Keys
 
 logging.basicConfig(level=logging.INFO)
@@ -20,14 +21,12 @@ load_dotenv()
 GUILD_IDS = [int(os.getenv("GUILD_ID"))]
 ROLE_ID = int(os.getenv("ROLE_ID"))
 
-USER_DATA_DIR = "userdata"
 USED_TOKENS_FILE = "used_tokens.txt"
 
 if not os.path.isfile(USED_TOKENS_FILE):
     open(USED_TOKENS_FILE, "w").close()
 
-if not os.path.isdir(USER_DATA_DIR):
-    os.mkdir(USER_DATA_DIR)
+userdata.USER_DATA_DIR.mkdir(exist_ok=True)
 
 import nextcord
 from nextcord.ext import commands, application_checks
@@ -44,32 +43,23 @@ async def on_ready():
 
 @bot.slash_command(description="Who am I?", guild_ids=GUILD_IDS)
 async def whoami(interaction: nextcord.Interaction):
-    user_id = interaction.user.id
-    user_datafile = f"{USER_DATA_DIR}/{user_id}.txt"
-
-    if not os.path.isfile(user_datafile):
+    student = userdata.load(interaction.user.id)
+    if student is None:
         await interaction.send("I don't know :(", ephemeral=True)
         return
 
-    with open(user_datafile, "r") as f:
-        user_data = f.readlines()
-
-    await interaction.send(user_data[1], ephemeral=True)
+    await interaction.send(student.uni_id, ephemeral=True)
 
 
 @bot.slash_command(description="Identify the member.", guild_ids=GUILD_IDS)
 @application_checks.has_guild_permissions(administrator=True)  # Server integration failsafe
 async def whois(interaction: nextcord.Interaction, user: nextcord.Member):
-    user_datafile = f"{USER_DATA_DIR}/{user.id}.txt"
-
-    if not os.path.isfile(user_datafile):
+    student = userdata.load(user.id)
+    if student is None:
         await interaction.send("unknown", ephemeral=True)
         return
 
-    with open(user_datafile, "r") as f:
-        user_data = f.readlines()
-
-    await interaction.send(user_data[1], ephemeral=True)
+    await interaction.send(student.uni_id, ephemeral=True)
 
 
 @whois.error
