@@ -1,3 +1,4 @@
+import argparse
 import csv
 import os
 from datetime import datetime
@@ -84,12 +85,21 @@ def get_student_token(first_name: str, last_name: str) -> str | None:
 
 
 def main():
-    match = ""
+    parser = argparse.ArgumentParser()
+    parser.add_argument("uni_id", nargs="+")
+    args = parser.parse_args()
+
+    wanted = set(args.uni_id)
     for student in read_students():
-        if student.uni_id == match:
-            print("Token for", match)
+        if student.uni_id in wanted:
+            wanted.discard(student.uni_id)
+            print("Token for", student.uni_id)
             print(get_jwt(student.full_name, student.uni_id, student.student_code))
+
+    for uni_id in sorted(wanted):
+        print(f"No student with UNI-ID '{uni_id}' in {STUDENTS_FILE}")
+    return 1 if wanted else 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
