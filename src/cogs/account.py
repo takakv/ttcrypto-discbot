@@ -24,6 +24,10 @@ ROLE_ID = int(os.getenv("ROLE_ID"))
 
 USED_TOKENS_FILE = "used_tokens.txt"
 
+CDOC2_SERVER_ID = "00000000-0000-0000-0000-000000000000"
+CDOC2_SERVER_URL = "https://cdoc2.id.ee:8443"
+CDOC2_SERVER_CA = "./vendor/cdoc2-ca.der"
+
 
 class LdapData(NamedTuple):
     cn: str
@@ -165,17 +169,19 @@ class Account(commands.Cog):
         cdoc_path = userdata.USER_DATA_DIR / f"{idc}.cdoc2"
 
         cdoc_cmd = [
-            "java",
-            "-jar",
-            "./vendor/cdoc2-cli.jar",
-            "create",
-            "--server", "./vendor/ria.properties",
-            "-c", str(cert_file_path),
-            "-f", str(cdoc_path),
+            "cdoc-tool",
+            "encrypt",
+            "--rcpt", f":cert:{cert_file_path}",
+            "--genlabel",
+            "--server", CDOC2_SERVER_ID, CDOC2_SERVER_URL,
+            "--accept", CDOC2_SERVER_CA,
+            "--out", str(cdoc_path),
             str(token_file_path)
         ]
 
         result = subprocess.run(cdoc_cmd, capture_output=True, text=True)
+        logging.warning(result.stdout)
+        logging.warning(result.stderr)
 
         cert_file_path.unlink(missing_ok=True)
         token_file_path.unlink(missing_ok=True)
