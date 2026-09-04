@@ -180,8 +180,6 @@ class Account(commands.Cog):
         ]
 
         result = subprocess.run(cdoc_cmd, capture_output=True, text=True)
-        logging.warning(result.stdout)
-        logging.warning(result.stderr)
 
         cert_file_path.unlink(missing_ok=True)
         token_file_path.unlink(missing_ok=True)
