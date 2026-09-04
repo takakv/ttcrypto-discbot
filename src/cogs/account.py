@@ -174,29 +174,32 @@ class Account(commands.Cog):
             "--rcpt", f":cert:{cert_file_path}",
             "--genlabel",
             "--server", CDOC2_SERVER_ID, CDOC2_SERVER_URL,
-            "--accept", CDOC2_SERVER_CA,
-            "--out", str(cdoc_path),
-            str(token_file_path)
+            "--accept", str(Path(CDOC2_SERVER_CA).resolve()),
+            "--out", str(cdoc_path.resolve()),
+            token_file_path.name
         ]
 
-        result = subprocess.run(cdoc_cmd, capture_output=True, text=True)
+        try:
+            result = subprocess.run(cdoc_cmd, capture_output=True, text=True,
+                                    cwd=token_file_path.parent)
+        finally:
+            cert_file_path.unlink(missing_ok=True)
+            token_file_path.unlink(missing_ok=True)
 
-        cert_file_path.unlink(missing_ok=True)
-        token_file_path.unlink(missing_ok=True)
+        try:
+            if result.returncode != 0:
+                await interaction.send(
+                    "Internal error encrypting the token. Send a message to @taka.kv for a code.",
+                    ephemeral=True)
+                return
 
-        if result.returncode != 0:
-            await interaction.send(
-                "Internal error encrypting the token. Send a message to @taka.kv for a code.",
-                ephemeral=True)
+            logging.info(f"Issued token '{token}' for user '{interaction.user.id}'")
+
+            await interaction.response.send_message(
+                "To decrypt your token, you will need your ID card or equivalent, "
+                "and the [DigiDoc](https://www.id.ee/en/article/install-id-software/) Estonian ID software.\n"
+                "If you are unable to decrypt the container, send a message to @taka.kv for a code.",
+                file=File(cdoc_path, filename="token.cdoc2"), ephemeral=True
+            )
+        finally:
             cdoc_path.unlink(missing_ok=True)
-            return
-
-        logging.info(f"Issued token '{token}' for user '{interaction.user.id}'")
-
-        await interaction.response.send_message(
-            "To decrypt your token, you will need your ID card or equivalent, "
-            "and the [DigiDoc](https://www.id.ee/en/article/install-id-software/) Estonian ID software.\n"
-            "If you are unable to decrypt the container, send a message to @taka.kv for a code.",
-            file=File(cdoc_path, filename="token.cdoc2"), ephemeral=True
-        )
-        cdoc_path.unlink(missing_ok=True)
