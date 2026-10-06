@@ -1,6 +1,7 @@
 import base64
 
-from Crypto.Protocol import HPKE
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.hpke import AEAD, KDF, KEM, Suite
 from nextcord import slash_command, Interaction, SlashOption
 from nextcord.ext import commands
 
@@ -28,17 +29,19 @@ class BotHPKE(commands.Cog):
         except RuntimeError:
             return
 
-        encryptor = HPKE.new(receiver_key=key,
-                             aead_id=HPKE.AEAD.AES128_GCM,
-                             info="ITC8280 week 6".encode())
-        ct = encryptor.seal(f"Hello {interaction.user.name}!".encode())
+        receiver_key = serialization.load_der_public_key(key.export_key(format="DER"))
+        suite = Suite(KEM.P384, KDF.HKDF_SHA384, AEAD.AES_128_GCM)
+        out = suite.encrypt(f"Hello {interaction.user.name}!".encode(),
+                            receiver_key,
+                            info="ICS0036 week 6".encode())
+        enc, ct = out[:KEM.P384.enc_length()], out[KEM.P384.enc_length():]
 
         try:
             message = base64.b64encode(ct).decode()
         except RuntimeError:
             return
 
-        capsule = base64.b64encode(encryptor.enc).decode()
+        capsule = base64.b64encode(enc).decode()
         await interaction.send(
             f'KEM capsule:\n```{capsule}```\n'
             f'AES-128-GCM encrypted ciphertext:\n```{message}```',
