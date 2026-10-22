@@ -51,10 +51,11 @@ class ElGamalAuthentication(commands.Cog):
         serialised = f"{u} {v}"
 
         curve = P384
+        encoder = SEC1Encoder()
         try:
-            u = SEC1Encoder.decode_public_key(u_bytes, curve)
-            v = SEC1Encoder.decode_public_key(v_bytes, curve)
-        except InvalidSEC1PublicKey:
+            u = encoder.decode_public_key(u_bytes, curve)
+            v = encoder.decode_public_key(v_bytes, curve)
+        except (InvalidSEC1PublicKey, ValueError):
             await interaction.send("The components are not valid P-384 encoded points!", ephemeral=True)
             return
 
