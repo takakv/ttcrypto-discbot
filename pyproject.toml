@@ -3,15 +3,15 @@ name = "ttcrypto-discbot"
 version = "0.1.0"
 requires-python = ">=3.13"
 dependencies = [
-    "cryptography>=50.0",
-    "fastecdsa>=4.0",
-    "gmpy2>=2.2.2",
-    "nextcord>=3.1.1",
-    "peewee>=4.5",
-    "pycryptodome>=3.23.0",
-    "pyjwt>=2.15",
-    "python-dotenv>=1.2",
-    "python-ldap>=3.4",
-    "typing-extensions>=4.15.0",
+    "cryptography>=50.0.2",
+    "fastecdsa>=4.0.0",
+    "gmpy2>=2.3.2",
+    "nextcord>=3.2.0",
+    "peewee>=4.5.3",
+    "pycryptodome>=4.1.0",
+    "pyjwt>=2.15.1",
+    "python-dotenv>=1.2.4",
+    "python-ldap>=3.4.8",
+    "typing-extensions>=4.16.0",
     "Unidecode>=1.4.0",
 ]
