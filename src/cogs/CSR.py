@@ -87,7 +87,7 @@ class CSR(commands.Cog):
 
         try:
             subprocess.run(["openssl", "x509", "-req",
-                            "-extfile", f"{SERVER_DATA_DIR}/mtls.itc.ext",
+                            "-extfile", f"{SERVER_DATA_DIR}/mtls.ext",
                             "-CA", f"{SERVER_DATA_DIR}/ca.cert.pem",
                             "-CAkey", f"{SERVER_DATA_DIR}/ca.key.pem",
                             # "-passin", f"pass:{CA_PWD}",
