@@ -1,6 +1,11 @@
+import os
+
 from peewee import *
 
-db = SqliteDatabase("ics0026.db")
+DB_DIR = "data"
+os.makedirs(DB_DIR, exist_ok=True)
+
+db = SqliteDatabase(os.path.join(DB_DIR, "bot.db"))
 
 
 class EGToken(Model):

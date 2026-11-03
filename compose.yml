@@ -4,12 +4,13 @@ services:
       context: .
     image: discbot:latest
     container_name: ics-bot
+    restart: unless-stopped
     volumes:
       - ./.env:/app/.env:ro
       - ./p384.pem:/app/p384.pem:ro
-      - ./egkey.txt:/app/egkey.txt:ro
       - ./students.csv:/app/students.csv:ro
       - ./used_tokens.txt:/app/used_tokens.txt
+      - ./data:/app/data
       - ./userdata:/app/userdata
       - ./serverdata:/app/serverdata
       - ./vendor:/app/vendor
