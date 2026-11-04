@@ -1,20 +1,18 @@
 import os
-import subprocess
+import tempfile
 from datetime import datetime, timezone
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from cryptography import x509
-from cryptography.hazmat._oid import NameOID
+from cryptography.x509.oid import NameOID
 from dotenv import load_dotenv
 from nextcord import slash_command, Interaction, SlashOption, Attachment, IntegrationType
 from nextcord.ext import commands
 
-from src.utils import userdata
-
-SERVER_DATA_DIR = "serverdata"
+from src.utils import ca, userdata
 
 load_dotenv()
-CA_PWD = os.getenv("CA_PWD")
 
 COURSE_TZ = ZoneInfo("Europe/Tallinn")
 
@@ -60,9 +58,6 @@ class CSR(commands.Cog):
             await interaction.send("Not authorised to request certificates!", ephemeral=True)
             return
 
-        tempfile = f"{student.uni_id}.temp"
-        certfile = f"{student.uni_id}.crt"
-
         try:
             data = await csr.read()
         except Exception:
@@ -73,6 +68,7 @@ class CSR(commands.Cog):
             csr = x509.load_pem_x509_csr(data)
         except ValueError as e:
             await interaction.send(str(e), ephemeral=True)
+            return
 
         subject = csr.subject
         serialised = subject.rfc4514_string({NameOID.EMAIL_ADDRESS: "E"})
@@ -82,29 +78,52 @@ class CSR(commands.Cog):
                                    ephemeral=True)
             return
 
-        with open(tempfile, "wb") as f:
-            f.write(data)
+        with tempfile.TemporaryDirectory() as tmp:
+            csr_file = Path(tmp) / "req.pem"
+            cert_file = Path(tmp) / "cert.pem"
+            csr_file.write_bytes(data)
+
+            try:
+                ca.issue(csr_file, cert_file, CERT_NOT_AFTER)
+            except ca.CAError:
+                await interaction.send("Internal server error", ephemeral=True)
+                return
+
+            cert = cert_file.read_text()
+
+        new_serial = x509.load_pem_x509_certificate(cert.encode()).serial_number
+        try:
+            superseded = ca.supersede(f"{student.uni_id}@taltech.ee", new_serial)
+        except ca.CAError:
+            note = "\nCouldn't revoke your previous certificate."
+        else:
+            serials = ", ".join(f"`{s}`" for s in superseded)
+            note = f"\nYour certificate {serials} has been revoked (superseded)." if superseded else ""
+
+        await interaction.send(f'```{cert}```{note}', ephemeral=True)
+
+    @slash_command(name="revoke",
+                   description="Revoke your TLS client certificate.",
+                   integration_types=[IntegrationType.user_install, IntegrationType.guild_install])
+    async def revoke_cert(self, interaction: Interaction,
+                          reason: str = SlashOption(description="Why the certificate is revoked.",
+                                                    choices=ca.REVOKE_REASONS, default="unspecified",
+                                                    required=False)):
+        student = userdata.load(interaction.user.id)
+        if student is None:
+            await interaction.send("Not authorised to revoke certificates!", ephemeral=True)
+            return
+
+        entries = ca.active(f"{student.uni_id}@taltech.ee")
+        if not entries:
+            await interaction.send("You have no active certificate.", ephemeral=True)
+            return
 
         try:
-            subprocess.run(["openssl", "x509", "-req",
-                            "-extfile", f"{SERVER_DATA_DIR}/mtls.ext",
-                            "-CA", f"{SERVER_DATA_DIR}/ca.cert.pem",
-                            "-CAkey", f"{SERVER_DATA_DIR}/ca.key.pem",
-                            # "-passin", f"pass:{CA_PWD}",
-                            "-CAcreateserial", "-sha256",
-                            # "-days", "1",
-                            "-not_after", CERT_NOT_AFTER,
-                            "-in", tempfile,
-                            "-out", certfile], check=True, capture_output=True)
-        except subprocess.CalledProcessError as e:
-            print(e)
-            os.remove(tempfile)
+            ca.revoke(entries, reason)
+        except ca.CAError:
             await interaction.send("Internal server error", ephemeral=True)
             return
 
-        with open(certfile, "r") as f:
-            cert = f.read()
-
-        os.remove(tempfile)
-        os.remove(certfile)
-        await interaction.send(f'```{cert}```', ephemeral=True)
+        serials = ", ".join(f"`{e.serial}`" for e in entries)
+        await interaction.send(f"Revoked certificate {serials}.", ephemeral=True)

@@ -9,3 +9,6 @@
 
 # Python
 venv/
+
+# CA database
+serverdata/ca/
